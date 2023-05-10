@@ -3,14 +3,13 @@ import firebase from "firebase/compat/app";
 import "firebase/compat/firestore";
 import "firebase/compat/auth";
 import * as config from "../../firebaseconfig.js";
-import {MessageDTO} from "../dto";
+import "firebase/compat/storage";
 
 
 @Injectable({
   providedIn: 'root'
 })
 export class FireService {
-
   mockDocument = {
     timestamp: new Date(),
     messageContent: "hello world",
@@ -18,22 +17,26 @@ export class FireService {
     user: "me"
   }
 
+
   firebaseApplication;
   firestore: firebase.firestore.Firestore;
   messages: any[] = [];
   auth: firebase.auth.Auth;
-  specificMessage: any;
+  storage: firebase.storage.Storage;
+  currentlySignedInUserAvatarUrl: string = "https://e7.pngegg.com/pngimages/220/542/png-clipart-silhouette-man-silhouette-animals-silhouette-thumbnail.png";
 
   constructor() {
     this.firebaseApplication = firebase.initializeApp(config.Firebaseconfig);
     this.firestore = firebase.firestore();
-    this.getMessages();
+    this.storage = firebase.storage();
     this.auth = firebase.auth();
 
+    this.firestore.useEmulator("localhost", 8080);
 
     this.auth.onAuthStateChanged((user) => {
       if (user) {
         this.getMessages();
+        this.getImageOfSignedInUser();
       }
     })
   }
@@ -47,14 +50,14 @@ export class FireService {
   }
 
   async getMessages() { // ex2
-    const ex2withGet = await this.firestore
-      .collection("helloworld")
-      .get();
-
     this.firestore
       .collection("helloworld")
       .onSnapshot(snapshot => {
-        this.messages.push(snapshot.docs);
+        snapshot.docChanges().forEach(change => {
+          if (change.type == "added") {
+            this.messages.push(change.doc.data());
+          }
+        })
       })
   }
 
@@ -83,11 +86,17 @@ export class FireService {
       .doc("thisdoc");
   }
 
-  async findAndFilterByUserid(filter: any) { //ex6
-    return this.firestore
+  findUserid(id: any) { //ex6
+    this.firestore
       .collection('helloworld')
-      .where('someNumber', '>', filter.toString())
-      .orderBy('someNumber');
+      .where('userid', '==', id)
+      .get()
+      .then(function (snapshot) {
+          snapshot.forEach(function (doc) {
+            return doc.data();
+          })
+        }
+      )
   }
 
   updateField(path, fieldRep) { //ex7
@@ -131,7 +140,6 @@ export class FireService {
   }
 
 
-
   async deleteByTimeStamp() { //ex10
     const docs = (await this.firestore
       .collection('helloworld')
@@ -144,7 +152,6 @@ export class FireService {
         .delete()
     })
   }
-
 
 
   async subscribeToChange() { //ex 11
@@ -205,11 +212,19 @@ export class FireService {
   signOut() {
     this.auth.signOut();
   }
+
+  async getImageOfSignedInUser() {
+    this.currentlySignedInUserAvatarUrl = await this.storage.ref("avatars")
+      .child(this.auth.currentUser?.uid+"")
+      .getDownloadURL()
+  }
+
+  async updateUserImage($event){
+    const img = $event.target.files[0];
+    const uploadTask = await this.storage.ref("avatars")
+      .child(this.auth.currentUser?.uid+"")
+      .put(img);
+    this.currentlySignedInUserAvatarUrl = await uploadTask.ref.getDownloadURL();
+  }
 }
 
-export interface MessageDTOI {
-  messageContent: string;
-  timestamp: Date;
-  user: string;
-  userid: any;
-}

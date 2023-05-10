@@ -11,17 +11,17 @@ export class AppComponent {
   sendThisMessage: any;
   findThisId: any;
   IdOfThisMessage: any;
-  specificMessage = MessageDTO;
+  specificMessage: any = "";
   email: string = "";
   password: string = "";
   editing: boolean = false;
   editText: any;
   constructor(public fireService: FireService) {
-    console.log("hello world app")
+    this.findThisId = "";
   }
 
   async getSpecificMessage(id: any) {
-    console.log((this.fireService.getMessageById(id)).userid)
+    this.specificMessage = this.fireService.findUserid(id)
   }
 
   changeToEdit() {
